@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 import jwt
 import secrets
+from pwdlib import PasswordHash
 
 from datetime import timedelta, datetime, timezone
 
@@ -13,6 +14,8 @@ from schemas import *
 
 SECURITY_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
+
+password_hash = PasswordHash.recommended()
 
 app = FastAPI()
 
@@ -150,7 +153,7 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
 def login(data:UserLogin, db:Session=Depends(get_db)):
     user = db.query(UserDB).filter(UserDB.email == data.email).first()
 
-    if user is None or user.password != data.password:
+    if user is None or not password_hash.verify(data.password,user.password):
         raise HTTPException(
             status_code=404,
             detail="The username or Password is wrong...."
@@ -171,3 +174,32 @@ def login(data:UserLogin, db:Session=Depends(get_db)):
         'message':'Login Successfull....',
         'access_token' : token
     }
+
+
+@app.post('/register/')
+def register(data:UserCreate , db:Session=Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.email == data.email).first()
+
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail="Email Already Registered"
+        )
+    hashed = password_hash.hash(data.password)
+
+    new_user = UserDB(
+        username = data.username,
+        email = data.email,
+        password = hashed
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        'message':'Registration Successful....',
+        'id':new_user.id,
+        'username':new_user.username,
+        'email':new_user.email
+    }
+

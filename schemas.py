@@ -19,9 +19,10 @@ class UserLogin(BaseModel):
     email : EmailStr
     password : str
 
-class UserCreate(BaseModel):
+class UserUpdate(BaseModel):
     id : int
     username : str
     email : EmailStr
+    password : str
 
     model_config = ConfigDict(from_attributes=True)
