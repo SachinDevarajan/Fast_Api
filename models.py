@@ -18,3 +18,10 @@ class StudentDB(Base):
     age : Mapped[int] = mapped_column(Integer)
     email : Mapped[str] = mapped_column(String(150),unique=True)
 
+
+class UserDB(Base):
+    __tablename__ = 'user'
+    id: Mapped[int] = mapped_column(Integer,primary_key=True, index=True)
+    username : Mapped[str] = mapped_column(String, nullable=False)
+    email : Mapped[str] = mapped_column(String, nullable=False)
+    password : Mapped[str] = mapped_column(String, nullable=False)

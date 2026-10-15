@@ -2,10 +2,17 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+import jwt
+import secrets
+
+from datetime import timedelta, datetime, timezone
 
 from database import engine, Base, get_db
 from models import *
 from schemas import *
+
+SECURITY_KEY = secrets.token_hex(32)
+ALGORITHM = "HS256"
 
 app = FastAPI()
 
@@ -136,3 +143,31 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Student deleted successfully"}
+
+
+''' Login  '''
+@app.post('/login/')
+def login(data:UserLogin, db:Session=Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.email == data.email).first()
+
+    if user is None or user.password != data.password:
+        raise HTTPException(
+            status_code=404,
+            detail="The username or Password is wrong...."
+        )
+
+    payload = {
+        'id' : user.id,
+        'email': user.email,
+        'exp' : datetime.now(timezone.utc) + timedelta(minutes=30)
+    }
+    token = jwt.encode(
+        payload,
+        SECURITY_KEY,
+        algorithm=ALGORITHM
+    )
+
+    return {
+        'message':'Login Successfull....',
+        'access_token' : token
+    }
