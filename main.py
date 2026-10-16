@@ -1,8 +1,13 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+
 import jwt
+from jwt.exceptions import InvalidTokenError
+
 import secrets
 from pwdlib import PasswordHash
 
@@ -12,14 +17,60 @@ from database import engine, Base, get_db
 from models import *
 from schemas import *
 
-SECURITY_KEY = secrets.token_hex(32)
+import os
+from dotenv import load_dotenv
+
+SECURITY_KEY = os.environ['SECURITY_KEY']
+# print(SECURITY_KEY)
 ALGORITHM = "HS256"
 
 password_hash = PasswordHash.recommended()
 
 app = FastAPI()
+security = HTTPBearer()
 
 Base.metadata.create_all(bind=engine)
+
+
+def get_current_user(creadentials:HTTPAuthorizationCredentials=Depends(security),
+                     db: Session = Depends(get_db)):
+    token = creadentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECURITY_KEY,
+            algorithms=[ALGORITHM]
+        )
+        user_id = int(payload['sub'])
+
+    except (InvalidTokenError, KeyError, ValueError):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or Experid Token"
+        )
+
+    user = db.get(UserDB, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User Not Found"
+        )
+    
+    return user
+
+
+def admin_required(user: UserDB = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required"
+        )
+
+    return user
+
+
 
 @app.get('/')
 def home():
@@ -29,9 +80,7 @@ def home():
 students = [
     Student(id=1, name="Sachin",age=24,email='sachin@gmail.com'),
     Student(id=2, name="Keerthi",age=23,email='keerthi@gmail.com'),
-    Student(id=3, name="Abhinai",age=23,email='abhinai@gmail.com'),
-    Student(id=4, name="Abhinai",age=23,email='abhinai@gmail.com'),
-
+    Student(id=3, name="Abhinai",age=23,email='abhinai@gmail.com')
 ]
 
 @app.get('/viewstudents/')
@@ -72,10 +121,12 @@ def delete_student(student_id:int):
     raise HTTPException( status_code=404, detail="Student not found" )
 
 
+
 """DataBase CRUD operations"""
 
-@app.post("/addstudent", status_code=201)
-def add_student( student: Student, db: Session = Depends(get_db)):
+@app.post("/add_student", status_code=201)
+def add_student( student: Student, db: Session = Depends(get_db),
+                admin: UserDB = Depends(admin_required)):
     new_student = StudentDB(**student.model_dump())
 
     db.add(new_student)
@@ -95,7 +146,8 @@ def add_student( student: Student, db: Session = Depends(get_db)):
 
 
 @app.get("/students")
-def get_students(db: Session = Depends(get_db)):
+def get_students(db: Session = Depends(get_db),
+                 current_user : UserDB=Depends(get_current_user)):
 
     students = db.scalars(select(StudentDB)).all()
 
@@ -138,7 +190,8 @@ def update_student( student_id: int, updated: Student,db: Session = Depends(get_
 
 
 @app.delete("/deletestudent/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
+def delete_student(student_id: int, db: Session = Depends(get_db),
+                   admin: UserDB = Depends(admin_required)):
     student = db.get(StudentDB, student_id)
     if not student:
         raise HTTPException( status_code=404, detail="Student not found" )
@@ -155,13 +208,12 @@ def login(data:UserLogin, db:Session=Depends(get_db)):
 
     if user is None or not password_hash.verify(data.password,user.password):
         raise HTTPException(
-            status_code=404,
+            status_code=401,
             detail="The username or Password is wrong...."
         )
 
     payload = {
-        'id' : user.id,
-        'email': user.email,
+        'sub' : str(user.id),
         'exp' : datetime.now(timezone.utc) + timedelta(minutes=30)
     }
     token = jwt.encode(
@@ -192,6 +244,7 @@ def register(data:UserCreate , db:Session=Depends(get_db)):
         email = data.email,
         password = hashed
     )
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)

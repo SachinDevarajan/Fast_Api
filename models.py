@@ -25,3 +25,4 @@ class UserDB(Base):
     username : Mapped[str] = mapped_column(String, nullable=False)
     email : Mapped[str] = mapped_column(String, nullable=False)
     password : Mapped[str] = mapped_column(String, nullable=False)
+    role :Mapped[str] = mapped_column(String,default='student',nullable=False)
