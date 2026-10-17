@@ -20,6 +20,8 @@ from schemas import *
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
+
 SECURITY_KEY = os.environ['SECURITY_KEY']
 # print(SECURITY_KEY)
 ALGORITHM = "HS256"
@@ -83,6 +85,7 @@ students = [
     Student(id=3, name="Abhinai",age=23,email='abhinai@gmail.com')
 ]
 
+"""Pydantic CRUD operations"""
 @app.get('/viewstudents/')
 def viewstudents():
     return students
@@ -155,7 +158,8 @@ def get_students(db: Session = Depends(get_db),
 
 
 @app.get("/students/{student_id}")
-def get_student(student_id: int, db: Session = Depends(get_db)):
+def get_student(student_id: int, db: Session = Depends(get_db),
+                current_user: UserDB = Depends(get_current_user)):
     student = db.get(StudentDB, student_id)
 
     if not student:
@@ -165,7 +169,8 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/updatestudent/{student_id}")
-def update_student( student_id: int, updated: Student,db: Session = Depends(get_db)):
+def update_student( student_id: int, updated: Student,db: Session = Depends(get_db),
+                   admin: UserDB = Depends(admin_required)):
     student = db.get(StudentDB, student_id)
 
     if not student:
@@ -255,4 +260,5 @@ def register(data:UserCreate , db:Session=Depends(get_db)):
         'username':new_user.username,
         'email':new_user.email
     }
+
 
