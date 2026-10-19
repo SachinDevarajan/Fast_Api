@@ -34,8 +34,9 @@ security = HTTPBearer()
 Base.metadata.create_all(bind=engine)
 
 
-def get_current_user(creadentials:HTTPAuthorizationCredentials=Depends(security),
+def get_current_user(creadentials : HTTPAuthorizationCredentials = Depends(security),
                      db: Session = Depends(get_db)):
+    
     token = creadentials.credentials
 
     try:
