@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from sqlalchemy import Integer, String
+from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import mapped_column, Mapped
 from database import Base
 

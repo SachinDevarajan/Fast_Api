@@ -8,7 +8,6 @@ from sqlalchemy.exc import IntegrityError
 import jwt
 from jwt.exceptions import InvalidTokenError
 
-import secrets
 from pwdlib import PasswordHash
 
 from datetime import timedelta, datetime, timezone
@@ -212,7 +211,7 @@ def delete_student(student_id: int, db: Session = Depends(get_db),
 def login(data:UserLogin, db:Session=Depends(get_db)):
     user = db.query(UserDB).filter(UserDB.email == data.email).first()
 
-    if user is None or not password_hash.verify(data.password,user.password):
+    if user is None or not password_hash.verify(data.password, user.password):
         raise HTTPException(
             status_code=401,
             detail="The username or Password is wrong...."
@@ -262,4 +261,16 @@ def register(data:UserCreate , db:Session=Depends(get_db)):
         'email':new_user.email
     }
 
+@app.get("/studentss/")
+def get_students(db: Session = Depends(get_db)):
+    students = db.query(StudentDB).all()
 
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "age": s.age,
+            'email':s.email
+        }
+        for s in students
+    ]
